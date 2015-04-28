@@ -2,6 +2,8 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
@@ -16,32 +18,36 @@ public class MangaCrawler {
 
     public static void main(String[] args){
        String rawScanUrl = "http://mangahead.com/Manga-Raw-Scan";
+       String mangaXML = "mangaScanDataBase.xml";
+       MangaScanDataBase mangaScanDB = new MangaScanDataBase(mangaXML);
 
-       for(String thumbnailUrl : getThumbnailUrls(rawScanUrl) ){
+       for(String thumbnailUrl : getThumbnailUrls(rawScanUrl, mangaScanDB) ){
            System.out.println("thumbnail URL : " + thumbnailUrl);
            saveMangaScansFromThumbnailUrl(thumbnailUrl);
+           //mangaScanDB.record(saveMangaScansFromThumbnailUrl);
        }
     }
 
-    public static class MangaChapter{
-        public String title;
-        public String chapter;
-        public MangaChapter(String title, String chapter){
-            this.title = title;
-            this.chapter = chapter;
+    public static Boolean UseDB = false;
+
+    public static ArrayList<String> getThumbnailUrls(String rawScanUrl, MangaScanDataBase mangaImgDB) {
+        // get manga title and chapter to fetch
+        ArrayList<MangaChapter> mangaChaps = new ArrayList<MangaChapter>();
+
+        if(UseDB) {
+            //ArrayList<MangaChapter> mangaChaps = mangaImgDB.getMangaChaptersToFetch();
+        }else {
+            //mangaChaps.add(new MangaChapter("One-Piece", "784"));
+            //mangaChaps.add(new MangaChapter("Naruto-Gaiden", ""));
+            mangaChaps.add(new MangaChapter("World-Trigger", "101"));
+            mangaChaps.add(new MangaChapter("Toriko", "321"));
+            mangaChaps.add(new MangaChapter("Shokugeki-no-Soma", "116"));
+            mangaChaps.add(new MangaChapter("Nisekoi", "168"));
+            mangaChaps.add(new MangaChapter("Assassination-Classroom", "137"));
         }
-    }
-
-    public static ArrayList<String> getThumbnailUrls(String rawScanUrl) {
-        // get manga title and chapter from XML
-        ArrayList<MangaChapter> manChaps = new ArrayList<MangaChapter>();
-        MangaChapter manChap = new MangaChapter("Gintama", "538");
-        manChaps.add( manChap );
-        manChaps.add( new MangaChapter("Toriko", "320") );
-
         ArrayList<String> thumbnailUrls = new ArrayList<String>();
 
-        for(MangaChapter chap: manChaps){
+        for(MangaChapter chap: mangaChaps){
             thumbnailUrls.add( getThumbnailUrl(rawScanUrl, chap.title, chap.chapter) );
         }
 
@@ -49,24 +55,10 @@ public class MangaCrawler {
     }
 
     public static String getThumbnailUrl(String rawScanUrl, String mangaTitle, String nextChapter){
-        // focus on one manga for now
-        // given a manga raw page, download unread chapter. That is, save a read chapter in XML as below
-        // <Manga title="World-Trigger">
-        //    <Chapter id='99' fetched='true'/>
-
-        // read XML
-        // for each manga
-        //    find the next chapter
-        //    search for thumbnailUrl in the rawScanUrl
-        //    return it when it's found
-        //String mangaTitle = "Gintama";
-        //String nextChapter = "538";
-        //String nextChapter = "538";
         String thumbnailUrl = new String();
 
         try{
             Document jpgDoc = Jsoup.connect(rawScanUrl).timeout(TimeOutInSec * 1000).get(); // 10 sec timeout
-            //Elements thumbnailUrlElm = jpgDoc.select("a[href*=" + mangaTitle + "]"); // find a tag with href containing target manga title and next chapter id
             String regExpr = mangaTitle + "-" + nextChapter; // find a tag with href containing target manga title and next chapter id
             Elements thumbnailUrlElm = jpgDoc.select("a[href~=" + regExpr + "]");
             thumbnailUrl = thumbnailUrlElm.attr("abs:href");
@@ -117,8 +109,47 @@ public class MangaCrawler {
         }
     }
 
-    // collect links to images in a give url
+    // collect links to images in a give url containing thumbnail images
     public static ArrayList<String> getImageUrlsFromThumbnailUrl(String thumbnailUrl){
+        ArrayList<String> allImageUrls = new ArrayList<String>();
+        // support multiple thumbnailUrl
+        ArrayList<String> thumbnailUrls = getAllThumbnailPages(thumbnailUrl);
+        System.out.println(" ---- ");
+        for(String url : thumbnailUrls) {
+            System.out.println(" thumbnail page = " + url);
+            ArrayList<String> imageUrls = getImageUrlsFromThumbnailUrlPerPage(url);
+            allImageUrls.addAll(imageUrls);
+        }
+        System.out.println(" ---- ");
+        return allImageUrls;
+    }
+
+    private static ArrayList<String> getAllThumbnailPages(String thumbnailUrl) {
+        ArrayList<String> thumbnailUrls = new ArrayList<String>();
+        thumbnailUrls.add(thumbnailUrl);
+        try {
+            Document doc = Jsoup.connect(thumbnailUrl).timeout(TimeOutInSec * 1000).get();
+            Elements links = doc.select("a[href*=page=]");
+            Set<String> hs = new HashSet<String>();
+
+            // since there are duplicate links containing "page=", use Set to find unique links
+            for(Element link : links){
+                String absHref = link.attr("abs:href");
+                hs.add(absHref);
+            }
+            for(String url : hs) {
+                thumbnailUrls.add(url);
+            }
+        }
+        catch (IOException ex)
+        {
+            ex.printStackTrace();
+        }
+        return thumbnailUrls;
+    }
+
+    // collect links to images in a give url containing thumbnail images
+    public static ArrayList<String> getImageUrlsFromThumbnailUrlPerPage(String thumbnailUrl){
         ArrayList<String> imageUrls = new ArrayList<String>();
         try {
             System.out.println("thumbnailUrl = " + thumbnailUrl);
@@ -126,16 +157,14 @@ public class MangaCrawler {
             Elements links = doc.select("a[href*=.jpg]");
             for(Element link : links){
                 String absHref = link.attr("abs:href");
-                System.out.println(absHref);
-
                 Document jpgDoc = Jsoup.connect(absHref).timeout(TimeOutInSec * 1000).get(); // 10 sec timeout
                 Elements jpgImgSrcs = jpgDoc.select("img[src$=.jpg]");
                 for(Element imgUrl : jpgImgSrcs) {
-                   System.out.println("  ==> " + imgUrl);
-                   imageUrls.add(imgUrl.attr("src"));
+                    System.out.println("  ==> " + imgUrl);
+                    imageUrls.add(imgUrl.attr("src"));
                 }
-
             }
+            // if the page has multiple thumbnail pages, apply above to the rest of pages
         }
         catch (IOException ex)
         {
@@ -143,5 +172,4 @@ public class MangaCrawler {
         }
         return imageUrls;
     }
-
 }
