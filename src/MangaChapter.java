@@ -8,4 +8,7 @@ public class MangaChapter{
         this.title = title;
         this.chapter = chapter;
     }
+    public String toString(){
+        return "title: " + title + ", chapter: " + chapter;
+    }
 }

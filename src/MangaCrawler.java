@@ -28,14 +28,14 @@ public class MangaCrawler {
        }
     }
 
-    public static Boolean UseDB = false;
+    public static Boolean UseDB = true;
 
     public static ArrayList<String> getThumbnailUrls(String rawScanUrl, MangaScanDataBase mangaImgDB) {
         // get manga title and chapter to fetch
         ArrayList<MangaChapter> mangaChaps = new ArrayList<MangaChapter>();
 
         if(UseDB) {
-            //ArrayList<MangaChapter> mangaChaps = mangaImgDB.getMangaChaptersToFetch();
+            mangaChaps.addAll( mangaImgDB.getMangaChaptersToFetch() );
         }else {
             //mangaChaps.add(new MangaChapter("One-Piece", "784"));
             //mangaChaps.add(new MangaChapter("Naruto-Gaiden", ""));
@@ -47,7 +47,11 @@ public class MangaCrawler {
         }
         ArrayList<String> thumbnailUrls = new ArrayList<String>();
 
+        System.out.println("rawScanUrl : " + rawScanUrl);
+
         for(MangaChapter chap: mangaChaps){
+            System.out.println("chap.title : " + chap.title);
+            System.out.println("chap.chapter : " + chap.chapter);
             thumbnailUrls.add( getThumbnailUrl(rawScanUrl, chap.title, chap.chapter) );
         }
 
