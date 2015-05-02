@@ -1,6 +1,4 @@
-<?xml version="1.0"?>
-<MangaDataBase>
-    <Manga title="World-Trigger" latestChapterFetched='100'/>
-    <Manga title="Toriko" latestChapterFetched='320'/>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><MangaDataBase>
+    <Manga savedChapters="2 100 101" title="World-Trigger"/>
+    <Manga savedChapters="5 320 321" title="Toriko"/>
 </MangaDataBase>
-

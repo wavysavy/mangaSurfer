@@ -10,7 +10,13 @@ import javax.xml.parsers.ParserConfigurationException;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-
+import java.util.List;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerConfigurationException;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 
 /**
  * Created by hakiba on 4/23/2015.
@@ -48,14 +54,52 @@ public class MangaScanDataBase {
             Node n = mangaNodeList.item(i);
             NamedNodeMap atts = n.getAttributes();
             String title = atts.getNamedItem("title").getNodeValue();
-            String latestChapterFetched = atts.getNamedItem("latestChapterFetched").getNodeValue();
-            String nextChapter = Integer.toString( Integer.parseInt(latestChapterFetched) + 1);
+            String[] savedChaptersInStr = atts.getNamedItem("savedChapters").getNodeValue().split(" ");
+            List<Integer> chapters = new ArrayList<Integer>();
+            Integer latestChapter = 0;
+            for(String chapStr : savedChaptersInStr) {
+                Integer chapInt = Integer.parseInt(chapStr);
+                chapters.add(chapInt);
+                if(chapInt > latestChapter) latestChapter = chapInt;
+            }
+
+            String nextChapter = Integer.toString( latestChapter + 1);
             MangaChapter mangaChap = new MangaChapter( title, nextChapter );
-            System.out.println(mangaChap);
             mangaChapList.add(mangaChap);
         }
         return mangaChapList;
     }
 
+    public void update(MangaChapter mangaChapter){
+        NodeList mangaNodeList = doc.getElementsByTagName("Manga");
 
+        for (int i = 0; i < mangaNodeList.getLength(); ++i) {
+            Node n = mangaNodeList.item(i);
+            NamedNodeMap atts = n.getAttributes();
+            String title = atts.getNamedItem("title").getNodeValue();
+            if(title==mangaChapter.title) {
+                Node savedChaptersNode = atts.getNamedItem("savedChapters");
+                String savedChaptersValue = savedChaptersNode.getNodeValue();
+                savedChaptersValue += " " + mangaChapter.chapter;
+                savedChaptersNode.setNodeValue(savedChaptersValue);
+            }
+        }
+    }
+
+    public void updateDoc(){
+        // write the DOM object to the file
+        TransformerFactory transformerFactory = TransformerFactory.newInstance();
+        try {
+            Transformer transformer = transformerFactory.newTransformer();
+            DOMSource domSource = new DOMSource(doc);
+            StreamResult streamResult = new StreamResult(new File(MangaScanDataXML));
+            try {
+                transformer.transform(domSource, streamResult);
+            }catch(TransformerException e){
+                e.printStackTrace();
+            }
+        }catch (TransformerConfigurationException e){
+            e.printStackTrace();
+        }
+    }
 }
