@@ -85,7 +85,7 @@ public class MangaDownloader {
         String[] urlSegments = thumbnailUrl.split("/");
         String mangaTitleChapDir = urlSegments[urlSegments.length-1];
         String mangaTitleDir = urlSegments[urlSegments.length-2];;
-        URL location = MangaCrawler.class.getProtectionDomain().getCodeSource().getLocation();
+        URL location = MangaDownloader.class.getProtectionDomain().getCodeSource().getLocation();
         String dirFullPath = location.toString() + mangaTitleDir + "/" + mangaTitleChapDir;
 
         // create tile dir and chapter dir inside it
