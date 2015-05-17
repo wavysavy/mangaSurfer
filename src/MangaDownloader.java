@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 
+import com.sun.org.apache.xpath.internal.operations.Bool;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.jsoup.Jsoup;
@@ -25,14 +26,17 @@ import org.jsoup.select.Elements;
 //      6. download images at manga title dir
 //
 // Classes
-//   * MangaDownloader
-//   * MangaScanDataBase
-//   * MangaChapter
+//   * MangaDownloader - for each manga, find thumbnail URL, and save each images there
+//     * MangaScanDataBase
+//     * MangaChapter
 //
+// New Features
+//   * the program keeps running and look for the latest chapters every day, if found, send notification e-mail
+//     - MangaInspecter
+
 public class MangaDownloader {
 
-    public static int TimeOutInSec = 10;
-    public static Boolean UseDB = true;
+    private static int TimeOutInSec = 10;
 
     public static void main(String[] args) {
         String mangaXML = "mangaScanDataBase.xml";
@@ -40,39 +44,66 @@ public class MangaDownloader {
 
         // get manga chapters
         ArrayList<MangaChapter> mangaChaps = new ArrayList<MangaChapter>();
-        if (UseDB) {
-            mangaChaps.addAll(mangaScanDB.getMangaChaptersToFetch());
-        } else {
-            //mangaChaps.add(new MangaChapter("One-Piece", "784"));
-            //mangaChaps.add(new MangaChapter("Naruto-Gaiden", ""));
-            mangaChaps.add(new MangaChapter("World-Trigger", "101"));
-            mangaChaps.add(new MangaChapter("Toriko", "321"));
-            mangaChaps.add(new MangaChapter("Shokugeki-no-Soma", "116"));
-            mangaChaps.add(new MangaChapter("Nisekoi", "168"));
-            mangaChaps.add(new MangaChapter("Assassination-Classroom", "137"));
-        }
+
+        mangaChaps.addAll(mangaScanDB.getMangaChaptersToFetch());
 
         String rawScanUrl = "http://mangahead.com/Manga-Raw-Scan";
-        //String engScanUrl = "http://mangahead.com/Manga-English-Scan";
+        String engScanUrl = "http://mangahead.com/Manga-English-Scan";
 
         for (MangaChapter chap : mangaChaps) {
-            String thumbnailUrl = getThumbnailUrl(rawScanUrl, chap.title, chap.chapter);
+            // go to thumbnail page from the latest page
+            String scanUrl = ( chap.language.toLowerCase().equals("en") || chap.language.toLowerCase().equals("eng") || chap.language.toLowerCase().equals("english") ) ? engScanUrl : rawScanUrl;
+            System.out.println(" chap.language = " + chap.language);
+            System.out.println(" target URL to get thumbnail url = " + scanUrl);
+            String thumbnailUrl = getThumbnailUrl(scanUrl, chap.title, chap.chapter);
+
+            // if not found, go fetch thumbnail page from manga dedicated page
+            if( thumbnailUrl.length() == 0) {
+                String perMangaUrl = getPerMangaUrl(scanUrl, chap.title);
+                if( perMangaUrl.length() > 0 ) {
+                    System.out.println("thumbnail URL is found at the individual manga page");
+                    System.out.println("  perMangaUrl = " + perMangaUrl);
+                    thumbnailUrl = getThumbnailUrl(perMangaUrl, chap.title, chap.chapter);
+                    if(thumbnailUrl.length() == 0)
+                        System.out.println("  ==> BUT, no thumbnail urls are collected!");
+                }
+            }
+
             System.out.println("thumbnail URL : " + thumbnailUrl);
             System.out.print("The target manga to fetch --> ");
             System.out.println(chap);
 
             if( thumbnailUrl.length() > 0) {
-                //if (saveMangaScansFromThumbnailUrl(thumbnailUrl))
-                saveMangaScansFromThumbnailUrl(thumbnailUrl);
-                mangaScanDB.update(chap);
-            }else{
-                System.out.println("  --> URL doesn't exist! New chapter is not out yet. ");
+                //saveMangaScansFromThumbnailUrl(thumbnailUrl);
+                if (saveMangaScansFromThumbnailUrl(thumbnailUrl))
+                    mangaScanDB.update(chap);
+            } else {
+                System.out.println("  --> URL doesn't exist! New chapter is not out yet. \n");
             }
+
         }
         mangaScanDB.updateDoc();
     }
 
-    private static Boolean urlExist(String url) {
+    protected static String getPerMangaUrl(String topPageUrl, String title){
+        String perMangaUrl = new String();
+        try {
+            System.out.println("topPageUrl = " + topPageUrl);
+            Document doc = Jsoup.connect(topPageUrl).timeout(TimeOutInSec * 1000).get();
+            System.out.println("title = " + title);
+            // better to look for latest chapter as well as per-manga page
+            Elements links = doc.select("a[href$="+title+"]");
+            for (Element link : links) {
+                System.out.println(" link = " + link);
+                perMangaUrl = link.attr("abs:href");
+            }
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+        return perMangaUrl;
+    }
+
+    protected static Boolean urlExist(String url) {
         try {
             Document doc = Jsoup.connect(url).timeout(TimeOutInSec * 1000).get();
         }catch (UnknownHostException e) {
@@ -83,13 +114,14 @@ public class MangaDownloader {
         return true;
     }
 
-    public static String getThumbnailUrl(String rawScanUrl, String mangaTitle, String nextChapter) {
+    protected static String getThumbnailUrl(String rawScanUrl, String mangaTitle, String nextChapter) {
         String thumbnailUrl = new String();
-
+        System.out.println(" --> getThumbnailUrl(" + rawScanUrl + ", " + mangaTitle + ", " + nextChapter + ")");
         try {
             Document jpgDoc = Jsoup.connect(rawScanUrl).timeout(TimeOutInSec * 1000).get(); // 10 sec timeout
             String regExpr = mangaTitle + "-" + nextChapter; // find a tag with href containing target manga title and next chapter id
             Elements thumbnailUrlElm = jpgDoc.select("a[href~=" + regExpr + "]");
+            System.out.println("   name = " + thumbnailUrlElm.attr("name") );
             thumbnailUrl = thumbnailUrlElm.attr("abs:href");
         } catch (IOException e) {
             e.printStackTrace();
@@ -104,7 +136,7 @@ public class MangaDownloader {
         //return "http://mangahead.com/Manga-Raw-Scan/Fairy-Tail/Fairy-Tail-428-Raw-Scan";
     }
 
-    public static boolean saveMangaScansFromThumbnailUrl(String thumbnailUrl) {
+    protected static boolean saveMangaScansFromThumbnailUrl(String thumbnailUrl) {
         // create directory to save images
         String[] urlSegments = thumbnailUrl.split("/");
         String mangaTitleChapDir = urlSegments[urlSegments.length - 1];
@@ -113,12 +145,12 @@ public class MangaDownloader {
         String dirFullPath = location.toString() + mangaTitleDir + "/" + mangaTitleChapDir;
 
         // create tile dir and chapter dir inside it
-        if (new File(mangaTitleDir).mkdir())
+        if ( new File(mangaTitleDir).mkdir() )
             System.out.println("dir " + mangaTitleDir + " was created!");
         else
             System.out.println("dir " + mangaTitleDir + " WASN'T created!");
 
-        if (new File(mangaTitleDir + "/" + mangaTitleChapDir).mkdir())
+        if ( new File(mangaTitleDir + "/" + mangaTitleChapDir).mkdir() )
             System.out.println("dir " + mangaTitleDir + "/" + mangaTitleChapDir + " was created!");
         else {
             System.out.println("dir " + mangaTitleDir + "/" + mangaTitleChapDir + " already exist. Skip saving images. ");
@@ -144,7 +176,7 @@ public class MangaDownloader {
     }
 
     // collect links to images in a give url containing thumbnail images
-    public static ArrayList<String> getImageUrlsFromThumbnailUrl(String thumbnailUrl) {
+    protected static ArrayList<String> getImageUrlsFromThumbnailUrl(String thumbnailUrl) {
         ArrayList<String> allImageUrls = new ArrayList<String>();
         // support multiple thumbnailUrl
         ArrayList<String> thumbnailUrls = getAllThumbnailPages(thumbnailUrl);
@@ -158,7 +190,7 @@ public class MangaDownloader {
         return allImageUrls;
     }
 
-    private static ArrayList<String> getAllThumbnailPages(String thumbnailUrl) {
+    protected static ArrayList<String> getAllThumbnailPages(String thumbnailUrl) {
         ArrayList<String> thumbnailUrls = new ArrayList<String>();
         thumbnailUrls.add(thumbnailUrl);
         try {
@@ -181,7 +213,7 @@ public class MangaDownloader {
     }
 
     // collect links to images in a give url containing thumbnail images
-    public static ArrayList<String> getImageUrlsFromThumbnailUrlPerPage(String thumbnailUrl) {
+    protected static ArrayList<String> getImageUrlsFromThumbnailUrlPerPage(String thumbnailUrl) {
         ArrayList<String> imageUrls = new ArrayList<String>();
         try {
             System.out.println("thumbnailUrl = " + thumbnailUrl);

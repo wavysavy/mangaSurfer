@@ -1,4 +1,20 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?><MangaDataBase>
-    <Manga savedChapters="2 100 101" title="World-Trigger"/>
-    <Manga savedChapters="5 320 321" title="Toriko"/>
+    <Manga savedChapters="69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85" title="Btooom"/>
+    <!--
+        <Manga savedChapters="8 9 10 11 12" title="Black-Clover"/>
+        <Manga savedChapters="0 1" title="Sesuji-wo-Pin!"/>
+        <Manga language="jap" savedChapters="784 785" title="One-Piece"/>
+        <Manga language="en" savedChapters="784 785" title="One-Piece"/>
+        <Manga language="en" savedChapters="428" title="Fairy-Tail"/>
+        <Manga savedChapters="784 785" title="One-Piece"/>
+        <Manga language="jap" savedChapters="134 135 136 137" title="Terra-Formars"/>
+        <Manga language="jap" savedChapters="5 321 322" title="Toriko"/>
+        <Manga language="jap" savedChapters="2 100 101 102" title="World-Trigger"/>
+
+        <Manga language="jap" savedChapters="1" title="Naruto-Gaiden"/>
+        <Manga language="jap" savedChapters="168 169 170" title="Nisekoi"/>
+        <Manga language="jap" savedChapters="137 138" title="Assassination-Classroom"/>
+        <Manga language="jap" savedChapters="116 117 118" title="Shokugeki-no-Soma"/>
+        <Manga language="jap" savedChapters="67 68" title="Shingeki-no-Kyojin"/>
+    -->
 </MangaDataBase>

@@ -53,6 +53,7 @@ public class MangaScanDataBase {
         {
             Node n = mangaNodeList.item(i);
             NamedNodeMap atts = n.getAttributes();
+            String language = atts.getNamedItem("language")==null ? "" : atts.getNamedItem("language").getNodeValue();
             String title = atts.getNamedItem("title").getNodeValue();
             String[] savedChaptersInStr = atts.getNamedItem("savedChapters").getNodeValue().split(" ");
             List<Integer> chapters = new ArrayList<Integer>();
@@ -64,7 +65,7 @@ public class MangaScanDataBase {
             }
 
             String nextChapter = Integer.toString( latestChapter + 1);
-            MangaChapter mangaChap = new MangaChapter( title, nextChapter );
+            MangaChapter mangaChap = new MangaChapter( language, title, nextChapter );
             mangaChapList.add(mangaChap);
         }
         return mangaChapList;
