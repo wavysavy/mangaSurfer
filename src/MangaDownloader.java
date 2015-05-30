@@ -37,52 +37,59 @@ import org.jsoup.select.Elements;
 public class MangaDownloader {
 
     private static int TimeOutInSec = 10;
+    private static boolean DownloadDirectlyFromThumbnailUrl = false;
 
     public static void main(String[] args) {
-        String mangaXML = "mangaScanDataBase.xml";
-        MangaScanDataBase mangaScanDB = new MangaScanDataBase(mangaXML);
-
-        // get manga chapters
-        ArrayList<MangaChapter> mangaChaps = new ArrayList<MangaChapter>();
-
-        mangaChaps.addAll(mangaScanDB.getMangaChaptersToFetch());
-
-        String rawScanUrl = "http://mangahead.com/Manga-Raw-Scan";
-        String engScanUrl = "http://mangahead.com/Manga-English-Scan";
-
-        for (MangaChapter chap : mangaChaps) {
-            // go to thumbnail page from the latest page
-            String scanUrl = ( chap.language.toLowerCase().equals("en") || chap.language.toLowerCase().equals("eng") || chap.language.toLowerCase().equals("english") ) ? engScanUrl : rawScanUrl;
-            System.out.println(" chap.language = " + chap.language);
-            System.out.println(" target URL to get thumbnail url = " + scanUrl);
-            String thumbnailUrl = getThumbnailUrl(scanUrl, chap.title, chap.chapter);
-
-            // if not found, go fetch thumbnail page from manga dedicated page
-            if( thumbnailUrl.length() == 0) {
-                String perMangaUrl = getPerMangaUrl(scanUrl, chap.title);
-                if( perMangaUrl.length() > 0 ) {
-                    System.out.println("thumbnail URL is found at the individual manga page");
-                    System.out.println("  perMangaUrl = " + perMangaUrl);
-                    thumbnailUrl = getThumbnailUrl(perMangaUrl, chap.title, chap.chapter);
-                    if(thumbnailUrl.length() == 0)
-                        System.out.println("  ==> BUT, no thumbnail urls are collected!");
-                }
-            }
-
-            System.out.println("thumbnail URL : " + thumbnailUrl);
-            System.out.print("The target manga to fetch --> ");
-            System.out.println(chap);
-
-            if( thumbnailUrl.length() > 0) {
-                //saveMangaScansFromThumbnailUrl(thumbnailUrl);
-                if (saveMangaScansFromThumbnailUrl(thumbnailUrl))
-                    mangaScanDB.update(chap);
-            } else {
-                System.out.println("  --> URL doesn't exist! New chapter is not out yet. \n");
-            }
-
+        if(DownloadDirectlyFromThumbnailUrl) {
+            saveMangaScansFromThumbnailUrl("http://mangahead.com/Manga-Collections/Special-Collections/Naruto-Gaiden-Raw-Scan");
         }
-        mangaScanDB.updateDoc();
+        else
+        {
+            String mangaXML = "mangaScanDataBase.xml";
+            MangaScanDataBase mangaScanDB = new MangaScanDataBase(mangaXML);
+
+            // get manga chapters
+            ArrayList<MangaChapter> mangaChaps = new ArrayList<MangaChapter>();
+
+            mangaChaps.addAll(mangaScanDB.getMangaChaptersToFetch());
+
+            String rawScanUrl = "http://mangahead.com/Manga-Raw-Scan";
+            String engScanUrl = "http://mangahead.com/Manga-English-Scan";
+
+            for (MangaChapter chap : mangaChaps) {
+                // go to thumbnail page from the latest page
+                String scanUrl = (chap.language.toLowerCase().equals("en") || chap.language.toLowerCase().equals("eng") || chap.language.toLowerCase().equals("english")) ? engScanUrl : rawScanUrl;
+                System.out.println(" chap.language = " + chap.language);
+                System.out.println(" target URL to get thumbnail url = " + scanUrl);
+                String thumbnailUrl = getThumbnailUrl(scanUrl, chap.title, chap.chapter);
+
+                // if not found, go fetch thumbnail page from manga dedicated page
+                if (thumbnailUrl.length() == 0) {
+                    String perMangaUrl = getPerMangaUrl(scanUrl, chap.title);
+                    if (perMangaUrl.length() > 0) {
+                        System.out.println("thumbnail URL is found at the individual manga page");
+                        System.out.println("  perMangaUrl = " + perMangaUrl);
+                        thumbnailUrl = getThumbnailUrl(perMangaUrl, chap.title, chap.chapter);
+                        if (thumbnailUrl.length() == 0)
+                            System.out.println("  ==> BUT, no thumbnail urls are collected!");
+                    }
+                }
+
+                System.out.println("thumbnail URL : " + thumbnailUrl);
+                System.out.print("The target manga to fetch --> ");
+                System.out.println(chap);
+
+                if (thumbnailUrl.length() > 0) {
+                    //saveMangaScansFromThumbnailUrl(thumbnailUrl);
+                    if (saveMangaScansFromThumbnailUrl(thumbnailUrl))
+                        mangaScanDB.update(chap);
+                } else {
+                    System.out.println("  --> URL doesn't exist! New chapter is not out yet. \n");
+                }
+
+            }
+            mangaScanDB.updateDoc();
+        }
     }
 
     protected static String getPerMangaUrl(String topPageUrl, String title){
@@ -119,7 +126,7 @@ public class MangaDownloader {
         System.out.println(" --> getThumbnailUrl(" + rawScanUrl + ", " + mangaTitle + ", " + nextChapter + ")");
         try {
             Document jpgDoc = Jsoup.connect(rawScanUrl).timeout(TimeOutInSec * 1000).get(); // 10 sec timeout
-            String regExpr = mangaTitle + "-" + nextChapter; // find a tag with href containing target manga title and next chapter id
+            String regExpr = mangaTitle + "-" + nextChapter + "-Raw"; // find a tag with href containing target manga title and next chapter id
             Elements thumbnailUrlElm = jpgDoc.select("a[href~=" + regExpr + "]");
             System.out.println("   name = " + thumbnailUrlElm.attr("name") );
             thumbnailUrl = thumbnailUrlElm.attr("abs:href");
