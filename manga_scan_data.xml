@@ -1,20 +1,19 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?><MangaDataBase>
-    <Manga language="jap" savedChapters="154 155 156 157 158" title="Haikyuu!!"/>
-    <Manga language="eng" savedChapters="787 788" title="One-Piece"/>
+    <Manga language="jap" savedChapters="784 785 786 787 788 789 790 791 792 793 794 795 796" title="One-Piece"/>
 <!--
+    <Manga language="jap" savedChapters="154 155 156 157 158 159 160 161 162 163 164 165 166 167 168 169 170 171 172" title="Haikyuu!!"/>
+    <Manga language="jap" savedChapters="137 138 139 140 141 142 143 144 145 146 147 148 149 150" title="Bleach"/>
+    <Manga language="jap" savedChapters="137 138 139 140 141 142 143 144 145 146 147 148 149 150 151" title="Assassination-Classroom"/>
+    <Manga language="jap" savedChapters="134 135 136 137 138 139 140 141 142 143 144 145 146 147" title="Terra-Formars"/>
+    <Manga language="jap" savedChapters="2 100 101 102 103 104 105 106 107 108 109 110 111 112 113 114" title="World-Trigger"/>
+    <Manga language="jap" savedChapters="5 321 322" title="Toriko"/>
     <Manga language="jap" savedChapters="428" title="Fairy-Tail"/>
-    <Manga language="jap" title="One-Piece" savedChapters="784 785 786 787" />
-    <Manga language="jap" savedChapters="2 100 101 102" title="World-Trigger"/>
-    <Manga language="jap" savedChapters="137 138 139 140" title="Assassination-Classroom"/>
     <Manga savedChapters="69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85" title="Btooom"/>
     <Manga savedChapters="8 9 10 11 12" title="Black-Clover"/>
-    <Manga savedChapters="0 1 2" title="Sesuji-wo-Pin!"/>
-    <Manga language="jap" savedChapters="134 135 136 137" title="Terra-Formars"/>
-    <Manga language="jap" savedChapters="5 321 322" title="Toriko"/>
-
-    <Manga language="jap" savedChapters="1" title="Naruto-Gaiden"/>
+    <Manga savedChapters="0 1 2 3 4" title="Sesuji-wo-Pin!"/>
     <Manga language="jap" savedChapters="168 169 170 171" title="Nisekoi"/>
-    <Manga language="jap" savedChapters="116 117 118 119" title="Shokugeki-no-Soma"/>
-    <Manga language="jap" savedChapters="67 68" title="Shingeki-no-Kyojin"/>
+    <Manga language="jap" savedChapters="116 117 118 119 120 121 122 123 124 125 126 127 128 129 130 131 132 133" title="Shokugeki-no-Soma"/>
+    <Manga language="jap" savedChapters="67 68 69 70 71 72" title="Shingeki-no-Kyojin"/>
+    <Manga language="eng" savedChapters="787 788 789 790" title="One-Piece"/>
 -->
 </MangaDataBase>
