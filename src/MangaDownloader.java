@@ -36,7 +36,12 @@ import static java.lang.System.exit;
 // New Features
 //   * the program keeps running and look for the latest chapters every day, if found, send notification e-mail
 //     - MangaInspecter
-
+// Problem:
+//   * 
+// ToDo:
+//   * if chapter doesn't exist, try fetching next, if 3 attempt failed. Consider that as latest not out (define broken link as 3 consecutive chapters)
+//   * run MangDownloader as deamon, send notification once a manga is available (new feature)
+//
 public class MangaDownloader {
 
     private static int TimeOutInSec = 20;
@@ -47,46 +52,62 @@ public class MangaDownloader {
         // 1. when manga download stalled due to connection issue, delete current dir
         // 2. download as long as it exists
 
+        String mangaXML = "mangaScanDataBase.xml";
+        String urlBase = "http://mangahead.com/Manga-Raw-Scan/title/title-1-Raw-Scan";
+        MangaScanDataBase mangaScanDB = new MangaScanDataBase(mangaXML);
+
         if (DownloadDirectlyFromThumbnailUrl) {
             // single URL download
             //saveMangaScansFromThumbnailUrl("http://mangahead.com/Manga-Collections/Special-Collections/Naruto-Gaiden-VIII-Special-Raw-Scan");
 
-            boolean downloadSucceded = true;
-            String targetUrlBase = "http://mangahead.com/Manga-Raw-Scan/One-Piece/One-Piece-799-Raw-Scan"; // get it from XML
+            // get manga chapters
+            ArrayList<MangaChapter> mangaChaps = new ArrayList<MangaChapter>();
+            mangaChaps.addAll(mangaScanDB.getMangaChaptersToFetch());
 
-            // multiple URL download
-            while(true){
-                // change chapter name : scan from the back, find the chapter number string, cast it to int, increment by 1, cast to string, replace that with original
-                // String.valueOf(Integer.parseInt(s) + 1); // int 2 string
-                Pattern p = Pattern.compile("[0-9]+");
-                Matcher m = p.matcher(targetUrlBase);
-                String oldChapterNumber = new String();
-                if (m.find()) {
-                    oldChapterNumber = m.group(m.groupCount());
+            for (MangaChapter chap : mangaChaps){
+
+                boolean downloadSucceded = true;
+
+                //String targetUrlBase = chap.url; //"http://mangahead.com/Manga-Raw-Scan/One-Piece/One-Piece-799-Raw-Scan"; // get it from XML
+                String targetUrlBase = urlBase.replaceAll("title", chap.title);
+
+                // multiple URL download
+                while(true){
+                    // change chapter name : scan from the back, find the chapter number string, cast it to int, increment by 1, cast to string, replace that with original
+                    // String.valueOf(Integer.parseInt(s) + 1); // int 2 string
+                    Pattern p = Pattern.compile("[0-9]+");
+                    Matcher m = p.matcher(targetUrlBase);
+                    String oldChapterNumber = new String();
+                    if (m.find()) {
+                        oldChapterNumber = m.group(m.groupCount());
+                    }
+                    String newChapterNumber =  chap.chapter;
+                    System.out.println("oldChapterNumber = " + oldChapterNumber + ",  newChapterNumber = " + newChapterNumber);
+                    String targetUrl = targetUrlBase.replace(oldChapterNumber, newChapterNumber);
+                    System.out.println("newChapterNumber = " + newChapterNumber);
+                    System.out.println("targetUrl = " + targetUrl);
+                    downloadSucceded = saveMangaScansFromThumbnailUrl(targetUrl);
+                    if(!downloadSucceded){
+                        System.out.println("no image in " + targetUrl);
+                        break;
+                    }else{
+                        System.out.println(chap);
+                        mangaScanDB.update(chap);
+                        chap.incrementChapterNumber();
+                    }
+                    targetUrlBase = targetUrl;
                 }
-                String newChapterNumber = String.valueOf(Integer.parseInt(oldChapterNumber) + 1);
-                String targetUrl = targetUrlBase.replace(oldChapterNumber, newChapterNumber);
-                System.out.println("oldChapterNumber = " + oldChapterNumber);
-                System.out.println("newChapterNumber = " + newChapterNumber);
-                System.out.println("targetUrl = " + targetUrl);
-                downloadSucceded = saveMangaScansFromThumbnailUrl(targetUrl);
-                if(!downloadSucceded){
-                    System.out.println("no image in " + targetUrl);
-                    break;
-                }
-                targetUrlBase = targetUrl;
+                mangaScanDB.updateDoc();
             }
 
         } else {
-            while (download_one_chapter_per_manga()) {
+            while (download_one_chapter_per_manga(mangaScanDB)) {
             }
         }
     }
 
-    protected static boolean download_one_chapter_per_manga(){
+    protected static boolean download_one_chapter_per_manga(MangaScanDataBase mangaScanDB){
 
-        String mangaXML = "mangaScanDataBase.xml";
-        MangaScanDataBase mangaScanDB = new MangaScanDataBase(mangaXML);
         Boolean manga_downloaded = false;
 
         // get manga chapters
@@ -202,16 +223,21 @@ public class MangaDownloader {
         else
             System.out.println("dir " + mangaTitleDir + " WASN'T created!");
 
+        // create chapter dir
+        File perChapDirFile = new File(mangaTitleDir + "/" + mangaTitleChapDir);
+        Boolean perChapDirCreated = perChapDirFile.mkdir();
+        if ( perChapDirCreated )
+            System.out.println("dir " + mangaTitleDir + "/" + mangaTitleChapDir + " was created!");
+        else {
+            System.out.println("dir " + mangaTitleDir + "/" + mangaTitleChapDir + " already exist.");
+            Boolean completeChapExistsInDir = perChapDirFile.listFiles().length > 18 ? true : false;
+            if ( completeChapExistsInDir ) return false;
+        }
+
+        // this takes some time
         ArrayList<String> imageUrls = getImageUrlsFromThumbnailUrl(thumbnailUrl);
 
         if( imageUrls.size() > 0 ) {
-            // create chaptor dir
-            if (new File(mangaTitleDir + "/" + mangaTitleChapDir).mkdir())
-                System.out.println("dir " + mangaTitleDir + "/" + mangaTitleChapDir + " was created!");
-            else {
-                System.out.println("dir " + mangaTitleDir + "/" + mangaTitleChapDir + " already exist. Skip saving images. ");
-                return false;
-            }
             // save images for each url
             for (String imageUrl : imageUrls) {
                 String imgName = FilenameUtils.getName(imageUrl);

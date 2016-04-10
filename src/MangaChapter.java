@@ -13,4 +13,7 @@ public class MangaChapter{
     public String toString(){
         return "language: " + language + ", title: " + title + ", chapter: " + chapter;
     }
+    public void incrementChapterNumber(){
+        chapter =  String.valueOf( Integer.parseInt(chapter) + 1 );
+    }
 }

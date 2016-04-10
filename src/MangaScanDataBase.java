@@ -55,7 +55,7 @@ public class MangaScanDataBase {
             NamedNodeMap atts = n.getAttributes();
             String language = atts.getNamedItem("language")==null ? "" : atts.getNamedItem("language").getNodeValue();
             String title = atts.getNamedItem("title").getNodeValue();
-            String[] savedChaptersInStr = atts.getNamedItem("savedChapters").getNodeValue().split(" ");
+            String[] savedChaptersInStr = atts.getNamedItem("savedChapters").getNodeValue().split("\\s+");
             List<Integer> chapters = new ArrayList<Integer>();
             Integer latestChapter = 0;
             for(String chapStr : savedChaptersInStr) {
