@@ -45,8 +45,8 @@ public class MangaScanDataBase {
     // find all the manga title and latest chapter fetched
 
     // Example XML:
-    public ArrayList<MangaChapter> getMangaChaptersToFetch(){
-        ArrayList<MangaChapter> mangaChapList = new ArrayList<MangaChapter>();
+    public ArrayList<MangaMetaData> getMangaMetaDataToFetch(){
+        ArrayList<MangaMetaData> mangaChapList = new ArrayList<MangaMetaData>();
         NodeList mangaNodeList = doc.getElementsByTagName("Manga");
 
         for (int i = 0; i < mangaNodeList.getLength(); ++i)
@@ -65,13 +65,13 @@ public class MangaScanDataBase {
             }
 
             String nextChapter = Integer.toString( latestChapter + 1);
-            MangaChapter mangaChap = new MangaChapter( language, title, nextChapter );
+            MangaMetaData mangaChap = new MangaMetaData( language, title, nextChapter );
             mangaChapList.add(mangaChap);
         }
         return mangaChapList;
     }
 
-    public void update(MangaChapter mangaChapter){
+    public void update(MangaMetaData mangaChapter){
         NodeList mangaNodeList = doc.getElementsByTagName("Manga");
 
         for (int i = 0; i < mangaNodeList.getLength(); ++i) {

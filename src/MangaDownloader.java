@@ -31,7 +31,7 @@ import static java.lang.System.exit;
 // Classes
 //   * MangaDownloader - for each manga, find thumbnail URL, and save each images there
 //     * MangaScanDataBase
-//     * MangaChapter
+//     * MangaMetaData
 //
 // New Features
 //   * the program keeps running and look for the latest chapters every day, if found, send notification e-mail
@@ -61,10 +61,10 @@ public class MangaDownloader {
             //saveMangaScansFromThumbnailUrl("http://mangahead.com/Manga-Collections/Special-Collections/Naruto-Gaiden-VIII-Special-Raw-Scan");
 
             // get manga chapters
-            ArrayList<MangaChapter> mangaChaps = new ArrayList<MangaChapter>();
-            mangaChaps.addAll(mangaScanDB.getMangaChaptersToFetch());
+            ArrayList<MangaMetaData> mangaChaps = new ArrayList<MangaMetaData>();
+            mangaChaps.addAll(mangaScanDB.getMangaMetaDataToFetch());
 
-            for (MangaChapter chap : mangaChaps){
+            for (MangaMetaData chap : mangaChaps){
 
                 boolean downloadSucceded = true;
 
@@ -111,27 +111,27 @@ public class MangaDownloader {
         Boolean manga_downloaded = false;
 
         // get manga chapters
-        ArrayList<MangaChapter> mangaChaps = new ArrayList<MangaChapter>();
+        ArrayList<MangaMetaData> listOfManga = new ArrayList<MangaMetaData>();
 
-        mangaChaps.addAll(mangaScanDB.getMangaChaptersToFetch());
+        listOfManga.addAll(mangaScanDB.getMangaMetaDataToFetch());
 
         String rawScanUrl = "http://mangahead.com/Manga-Raw-Scan";
         String engScanUrl = "http://mangahead.com/Manga-English-Scan";
 
-        for (MangaChapter chap : mangaChaps) {
+        for (MangaMetaData meta : listOfManga) {
             // go to thumbnail page from the latest page
-            String scanUrl = (chap.language.toLowerCase().equals("en") || chap.language.toLowerCase().equals("eng") || chap.language.toLowerCase().equals("english")) ? engScanUrl : rawScanUrl;
-            System.out.println(" chap.language = " + chap.language);
+            String scanUrl = (meta.language.toLowerCase().equals("en") || meta.language.toLowerCase().equals("eng") || meta.language.toLowerCase().equals("english")) ? engScanUrl : rawScanUrl;
+            System.out.println(" meta.language = " + meta.language);
             System.out.println(" target URL to get thumbnail url = " + scanUrl);
-            String thumbnailUrl = getThumbnailUrl(scanUrl, chap.title, chap.chapter);
+            String thumbnailUrl = getThumbnailUrl(scanUrl, meta.title, meta.chapter);
 
             // if not found, go fetch thumbnail page from manga dedicated page
             if (thumbnailUrl.length() == 0) {
-                String perMangaUrl = getPerMangaUrl(scanUrl, chap.title);
+                String perMangaUrl = getPerMangaUrl(scanUrl, meta.title);
                 if (perMangaUrl.length() > 0) {
                     System.out.println("thumbnail URL is found at the individual manga page");
                     System.out.println("  perMangaUrl = " + perMangaUrl);
-                    thumbnailUrl = getThumbnailUrl(perMangaUrl, chap.title, chap.chapter);
+                    thumbnailUrl = getThumbnailUrl(perMangaUrl, meta.title, meta.chapter);
                     if (thumbnailUrl.length() == 0)
                         System.out.println("  ==> BUT, no thumbnail urls are collected!");
                 }
@@ -139,12 +139,12 @@ public class MangaDownloader {
 
             System.out.println("thumbnail URL : " + thumbnailUrl);
             System.out.print("The target manga to fetch --> ");
-            System.out.println(chap);
+            System.out.println(meta);
 
             if (thumbnailUrl.length() > 0) {
                 //saveMangaScansFromThumbnailUrl(thumbnailUrl);
                 if (saveMangaScansFromThumbnailUrl(thumbnailUrl)) {
-                    mangaScanDB.update(chap);
+                    mangaScanDB.update(meta);
                     manga_downloaded = true;
                 }
             } else {
@@ -223,21 +223,22 @@ public class MangaDownloader {
         else
             System.out.println("dir " + mangaTitleDir + " WASN'T created!");
 
-        // create chapter dir
-        File perChapDirFile = new File(mangaTitleDir + "/" + mangaTitleChapDir);
-        Boolean perChapDirCreated = perChapDirFile.mkdir();
-        if ( perChapDirCreated )
-            System.out.println("dir " + mangaTitleDir + "/" + mangaTitleChapDir + " was created!");
-        else {
-            System.out.println("dir " + mangaTitleDir + "/" + mangaTitleChapDir + " already exist.");
-            Boolean completeChapExistsInDir = perChapDirFile.listFiles().length > 18 ? true : false;
-            if ( completeChapExistsInDir ) return false;
-        }
-
         // this takes some time
         ArrayList<String> imageUrls = getImageUrlsFromThumbnailUrl(thumbnailUrl);
 
         if( imageUrls.size() > 0 ) {
+
+            // create chapter dir
+            File perChapDirFile = new File(mangaTitleDir + "/" + mangaTitleChapDir);
+            Boolean perChapDirCreated = perChapDirFile.mkdir();
+            if ( perChapDirCreated )
+                System.out.println("dir " + mangaTitleDir + "/" + mangaTitleChapDir + " was created!");
+            else {
+                System.out.println("dir " + mangaTitleDir + "/" + mangaTitleChapDir + " already exist.");
+                Boolean completeChapExistsInDir = perChapDirFile.listFiles().length > 18 ? true : false;
+                if ( completeChapExistsInDir ) return false;
+            }
+
             // save images for each url
             for (String imageUrl : imageUrls) {
                 String imgName = FilenameUtils.getName(imageUrl);
