@@ -37,7 +37,7 @@ import static java.lang.System.exit;
 //   * the program keeps running and look for the latest chapters every day, if found, send notification e-mail
 //     - MangaInspecter
 // Problem:
-//   * 
+//   *
 // ToDo:
 //   * if chapter doesn't exist, try fetching next, if 3 attempt failed. Consider that as latest not out (define broken link as 3 consecutive chapters)
 //   * run MangDownloader as deamon, send notification once a manga is available (new feature)
@@ -48,12 +48,28 @@ public class MangaDownloader {
     private static boolean DownloadDirectlyFromThumbnailUrl = true;
 
     public static void main(String[] args) {
+        download_manga_from_mangahead();
+        // download_manga_from_mangamura();
+    }
+
+    // For each manga from 作品一覧 page such as http://matome.manga-free-online.com/?cat=3674 for Btoom
+    //    For each chapter/volume page ( found by <div class="* article_title"> )
+    //        For each jpg image (find usrls with *[1-9][0-9].jpg)
+    //
+    protected static void download_manga_from_mangamura() {
+        String thumbnailUrl = "http://matome.manga-free-online.com/?p=1496907361";
+        ArrayList<String> thumbnailUrls = getAllThumbnailPages(thumbnailUrl);
+        for(Object url : thumbnailUrls)
+            System.out.println(" -> imgURL: " + url);
+    }
+
+    protected static boolean download_manga_from_mangahead() {
         // Enhancement List:
         // 1. when manga download stalled due to connection issue, delete current dir
         // 2. download as long as it exists
 
         String mangaXML = "mangaScanDataBase.xml";
-        String urlBase = "http://mangahead.com/Manga-Raw-Scan/title/title-1-Raw-Scan";
+        String urlBase = "http://mangahead.me/Manga-Raw-Scan/title/title-1-Raw-Scan";
         MangaScanDataBase mangaScanDB = new MangaScanDataBase(mangaXML);
 
         if (DownloadDirectlyFromThumbnailUrl) {
@@ -104,6 +120,7 @@ public class MangaDownloader {
             while (download_one_chapter_per_manga(mangaScanDB)) {
             }
         }
+        return true;
     }
 
     protected static boolean download_one_chapter_per_manga(MangaScanDataBase mangaScanDB){
@@ -131,9 +148,13 @@ public class MangaDownloader {
                 if (perMangaUrl.length() > 0) {
                     System.out.println("thumbnail URL is found at the individual manga page");
                     System.out.println("  perMangaUrl = " + perMangaUrl);
-                    thumbnailUrl = getThumbnailUrl(perMangaUrl, meta.title, meta.chapter);
-                    if (thumbnailUrl.length() == 0)
-                        System.out.println("  ==> BUT, no thumbnail urls are collected!");
+
+                    // try finding consecutive 3 chapters since 1 or 2 chapters may not be uploaded sometimes
+                    for(int tryCount=0; tryCount < 2; tryCount++) {
+                        thumbnailUrl = getThumbnailUrl(perMangaUrl, meta.title, meta.chapter);
+                        if (thumbnailUrl.length() != 0) break;
+                        else System.out.println("  " + meta.chapter + "is not available.");
+                    }
                 }
             }
 
@@ -148,7 +169,7 @@ public class MangaDownloader {
                     manga_downloaded = true;
                 }
             } else {
-                System.out.println("  --> URL doesn't exist! New chapter is not out yet. \n");
+                System.out.println("  --> URL doesn't exist! New chapter is not out yet or this chapter is never uploaded. \n");
             }
 
         }
@@ -156,49 +177,38 @@ public class MangaDownloader {
         return manga_downloaded;
     }
 
-    protected static String getPerMangaUrl(String topPageUrl, String title){
-        String perMangaUrl = new String();
+    protected static Document getDocFromURL(String url){
+        Document doc = null;
         try {
-            System.out.println("topPageUrl = " + topPageUrl);
-            Document doc = Jsoup.connect(topPageUrl).timeout(TimeOutInSec * 1000).get();
-            System.out.println("title = " + title);
-            // better to look for latest chapter as well as per-manga page
-            Elements links = doc.select("a[href$="+title+"]");
-            for (Element link : links) {
-                System.out.println(" link = " + link);
-                perMangaUrl = link.attr("abs:href");
-            }
+            doc = Jsoup.connect(url).timeout(TimeOutInSec * 1000).userAgent("Mozilla").get();
         } catch (IOException ex) {
-            System.out.println(" exception @ getPerMangaUrl");
             ex.printStackTrace();
-            exit(1);
         }
-        return perMangaUrl;
+        return doc;
     }
 
-    protected static Boolean urlExist(String url) {
-        try {
-            Document doc = Jsoup.connect(url).timeout(TimeOutInSec * 1000).get();
-        }catch (UnknownHostException e) {
-            return false;
-        }catch (IOException ex) {
-            ex.printStackTrace();
+    protected static String getPerMangaUrl(String topPageUrl, String title){
+        String perMangaUrl = new String();
+        System.out.println("topPageUrl = " + topPageUrl);
+        Document doc = getDocFromURL(topPageUrl);
+        System.out.println("title = " + title);
+        // better to look for latest chapter as well as per-manga page
+        Elements links = doc.select("a[href$="+title+"]");
+        for (Element link : links) {
+            System.out.println(" link = " + link);
+            perMangaUrl = link.attr("abs:href");
         }
-        return true;
+        return perMangaUrl;
     }
 
     protected static String getThumbnailUrl(String rawScanUrl, String mangaTitle, String nextChapter) {
         String thumbnailUrl = new String();
         System.out.println(" --> getThumbnailUrl(" + rawScanUrl + ", " + mangaTitle + ", " + nextChapter + ")");
-        try {
-            Document jpgDoc = Jsoup.connect(rawScanUrl).timeout(TimeOutInSec * 1000).get(); // 10 sec timeout
-            String regExpr = mangaTitle + "-" + nextChapter + "-Raw"; // find a tag with href containing target manga title and next chapter id
-            Elements thumbnailUrlElm = jpgDoc.select("a[href~=" + regExpr + "]");
-            System.out.println("   name = " + thumbnailUrlElm.attr("name") );
-            thumbnailUrl = thumbnailUrlElm.attr("abs:href");
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        Document jpgDoc = getDocFromURL(rawScanUrl); // 10 sec timeout
+        String regExpr = mangaTitle + "-" + nextChapter + "-Raw"; // find a tag with href containing target manga title and next chapter id
+        Elements thumbnailUrlElm = jpgDoc.select("a[href~=" + regExpr + "]");
+        System.out.println("   name = " + thumbnailUrlElm.attr("name") );
+        thumbnailUrl = thumbnailUrlElm.attr("abs:href");
 
         return thumbnailUrl;
 
@@ -276,21 +286,20 @@ public class MangaDownloader {
     protected static ArrayList<String> getAllThumbnailPages(String thumbnailUrl) {
         ArrayList<String> thumbnailUrls = new ArrayList<String>();
         thumbnailUrls.add(thumbnailUrl);
-        try {
-            Document doc = Jsoup.connect(thumbnailUrl).timeout(TimeOutInSec * 1000).get();
-            Elements links = doc.select("a[href*=page=]");
-            Set<String> hs = new HashSet<String>();
+        System.out.println("thumbnailUrl = " + thumbnailUrl);
 
-            // since there are duplicate links containing "page=", use Set to find unique links
-            for (Element link : links) {
-                String absHref = link.attr("abs:href");
-                hs.add(absHref);
-            }
-            for (String url : hs) {
-                thumbnailUrls.add(url);
-            }
-        } catch (IOException ex) {
-            ex.printStackTrace();
+        Document doc = getDocFromURL(thumbnailUrl);
+        Elements links = doc.select("a[href*=page=]"); // for mangahead
+        //Elements links = doc.select("a[href*paged=]"); // for mangamura
+        Set<String> hs = new HashSet<String>();
+
+        // since there are duplicate links containing "page=", use Set to find unique links
+        for (Element link : links) {
+            String absHref = link.attr("abs:href");
+            hs.add(absHref);
+        }
+        for (String url : hs) {
+            thumbnailUrls.add(url);
         }
         return thumbnailUrls;
     }
@@ -298,23 +307,19 @@ public class MangaDownloader {
     // collect links to images in a give url containing thumbnail images
     protected static ArrayList<String> getImageUrlsFromThumbnailUrlPerPage(String thumbnailUrl) {
         ArrayList<String> imageUrls = new ArrayList<String>();
-        try {
-            System.out.println("thumbnailUrl = " + thumbnailUrl);
-            Document doc = Jsoup.connect(thumbnailUrl).timeout(TimeOutInSec * 1000).get();
-            Elements links = doc.select("a[href*=.jpg]");
-            for (Element link : links) {
-                String absHref = link.attr("abs:href");
-                Document jpgDoc = Jsoup.connect(absHref).timeout(TimeOutInSec * 1000).get(); // 10 sec timeout
-                Elements jpgImgSrcs = jpgDoc.select("img[src$=.jpg]");
-                for (Element imgUrl : jpgImgSrcs) {
-                    System.out.println("  ==> " + imgUrl);
-                    imageUrls.add(imgUrl.attr("src"));
-                }
+        System.out.println("thumbnailUrl = " + thumbnailUrl);
+        Document doc = getDocFromURL(thumbnailUrl);
+        Elements links = doc.select("a[href*=.jpg]"); // href value that contains .jpg
+        for (Element link : links) {
+            String absHref = link.attr("abs:href");
+            Document jpgDoc = getDocFromURL(absHref);
+            Elements jpgImgSrcs = jpgDoc.select("img[src$=.jpg]"); // src value that ends with .jpg
+            for (Element imgUrl : jpgImgSrcs) {
+                System.out.println("  ==> " + imgUrl);
+                imageUrls.add(imgUrl.attr("src"));
             }
-            // if the page has multiple thumbnail pages, apply above to the rest of pages
-        } catch (IOException ex) {
-            ex.printStackTrace();
         }
+        // if the page has multiple thumbnail pages, apply above to the rest of pages
         return imageUrls;
     }
 }
