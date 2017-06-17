@@ -58,11 +58,14 @@ public class MangaDownloader {
     //           For each jpg image link (find by *[1-9][0-9].jpg*)
     //              download image
 
-    public static void CreateDir(String dirName) {
-        if ( new File(dirName).mkdir() )
+    public static Boolean CreateDir(String dirName) {
+        if ( new File(dirName).mkdir() ) {
             System.out.println("dir " + dirName + " was created!");
-        else
+            return true;
+        }else {
             System.out.println("dir " + dirName + " WASN'T created!");
+            return false;
+        }
     };
 
     protected static void download_manga_from_mangamura(String mangaTitleURL) {
@@ -93,7 +96,7 @@ public class MangaDownloader {
             String chapVolDirName = chapVolURLNamePair.name;
 
             // create chapter or volume dir
-            CreateDir(mangaTitleDir + "/" + chapVolDirName);
+            if( CreateDir(mangaTitleDir + "/" + chapVolDirName) == false ) continue;
 
             System.out.println(chapVolURLNamePair.url);
             for (String pageURL : fetchLinksByPattern(chapVolURLNamePair.url, "a[href*=paged=]"))
