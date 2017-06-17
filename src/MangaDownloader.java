@@ -48,19 +48,109 @@ public class MangaDownloader {
     private static boolean DownloadDirectlyFromThumbnailUrl = true;
 
     public static void main(String[] args) {
-        download_manga_from_mangahead();
-        // download_manga_from_mangamura();
+        //download_manga_from_mangahead();
+        download_manga_from_mangamura("http://matome.manga-free-online.com/?cat=1260");
     }
 
-    // For each manga from 作品一覧 page such as http://matome.manga-free-online.com/?cat=3674 for Btoom
-    //    For each chapter/volume page ( found by <div class="* article_title"> )
-    //        For each jpg image (find usrls with *[1-9][0-9].jpg)
+    // For each manga link from 作品一覧 page such as http://matome.manga-free-online.com/?cat=3674 for Btoom
+    //    For each chapter/volume link x ( find by <a href=x> under  <div class="* article_title"> )
+    //       For each page link  (find by <a href = 'paged=*')
+    //           For each jpg image link (find by *[1-9][0-9].jpg*)
+    //              download image
+
+    public static void CreateDir(String dirName) {
+        if ( new File(dirName).mkdir() )
+            System.out.println("dir " + dirName + " was created!");
+        else
+            System.out.println("dir " + dirName + " WASN'T created!");
+    };
+
+    protected static void download_manga_from_mangamura(String mangaTitleURL) {
+
+        class UrlNamePair{
+            String url;
+            String name;
+            UrlNamePair(String url, String name){ this.url = url; this.name = name; }
+        };
+
+        String imgExt = ".jpg";
+
+        Document doc = getDocFromURL(mangaTitleURL);
+
+        // find manga title string from manga title page
+        String mangaTitleDir = doc.select("h2[class*=post_title]").first().text();
+        CreateDir(mangaTitleDir);
+
+        // find chapter/volume list URLs by finding a tag under div tag which contains article_title as a value of class atrributes
+        ArrayList<UrlNamePair> chapVolURLs = new ArrayList<UrlNamePair>();
+        for(Element e : doc.select("div[class*=article_title]")) {
+            Element hrefIncludedElm = e.child(0);
+            chapVolURLs.add( new UrlNamePair(hrefIncludedElm.attr("abs:href"), hrefIncludedElm.text() ) );
+        }
+
+        for(UrlNamePair chapVolURLNamePair : chapVolURLs )
+        {
+            String chapVolDirName = chapVolURLNamePair.name;
+
+            // create chapter or volume dir
+            CreateDir(mangaTitleDir + "/" + chapVolDirName);
+
+            System.out.println(chapVolURLNamePair.url);
+            for (String pageURL : fetchLinksByPattern(chapVolURLNamePair.url, "a[href*=paged=]"))
+            {
+                //System.out.println(" -> pageURL: " + pageURL);
+
+                for (String imgURL : fetchLinksByPattern(pageURL, "a[href*= " + imgExt + "]"))
+                {
+                    String filenamePrefix = FilenameUtils.getName(imgURL); // extract string after the last '/'
+                    String imgFilename = filenamePrefix.substring(0, filenamePrefix.indexOf(".")); // remove string after "."
+                    String outImgPath = mangaTitleDir + "/" + chapVolDirName + "/" + imgFilename + imgExt;
+                    try {
+                        SaveImageFromUrl.saveImage(imgURL, outImgPath);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+
+            }
+        }
+    }
+
+    // --
+    // Example: In order to get the URL "/?p=101512" in the following html, search is done in 2 steps.
+    // That is, find <div with class value containing "article_title", then, find "<a" with non-empty href value.
     //
-    protected static void download_manga_from_mangamura() {
-        String thumbnailUrl = "http://matome.manga-free-online.com/?p=1496907361";
-        ArrayList<String> thumbnailUrls = getAllThumbnailPages(thumbnailUrl);
-        for(Object url : thumbnailUrls)
-            System.out.println(" -> imgURL: " + url);
+    //   <div class="col-sm-12 col-xs-12 article_title">  <a href="/?p=101512"> Volume 5 </a>  </div>
+    // --
+//    protected static ArrayList<String> fetchLinksByPatternTwoLevels(String inURL, String pattern1, String pattern2) {
+//        Document doc = getDocFromURL(inURL);
+//        Elements elms = doc.select(pattern1);
+//        for(Element elm : elms){
+//            Elements  = elm.select(pattern2);
+//        }
+//        ArrayList<String> outURLs = new ArrayList<String>();
+//        return outURLs;
+//    }
+
+    protected static ArrayList<String> fetchLinksByPattern(String inURL, String pattern) {
+        System.out.println("inURL @ fetchLinksByPattern = " + inURL);
+
+        ArrayList<String> outURLs = new ArrayList<String>();
+
+        Document doc = getDocFromURL(inURL);
+        Elements links = doc.select(pattern);
+
+        // remove duplicate links
+        Set<String> hs = new HashSet<String>();
+        for (Element link : links) {
+            String absHref = link.attr("abs:href");
+            hs.add(absHref);
+        }
+
+        for (String url : hs)
+            outURLs.add(url);
+
+        return outURLs;
     }
 
     protected static boolean download_manga_from_mangahead() {
@@ -123,6 +213,123 @@ public class MangaDownloader {
         return true;
     }
 
+    protected static boolean saveMangaScansFromThumbnailUrl(String thumbnailUrl) {
+        // create directory to save images
+        String[] urlSegments = thumbnailUrl.split("/");
+        String mangaTitleChapDir = urlSegments[urlSegments.length - 1];
+        String mangaTitleDir = urlSegments[urlSegments.length - 2];
+        URL location = MangaDownloader.class.getProtectionDomain().getCodeSource().getLocation();
+        String dirFullPath = location.toString() + mangaTitleDir + "/" + mangaTitleChapDir;
+
+        // create tile dir and chapter dir inside it
+        if ( new File(mangaTitleDir).mkdir() )
+            System.out.println("dir " + mangaTitleDir + " was created!");
+        else
+            System.out.println("dir " + mangaTitleDir + " WASN'T created!");
+
+        // this takes some time
+        ArrayList<String> imageUrls = getImageUrlsFromThumbnailUrl(thumbnailUrl);
+
+        if( imageUrls.size() > 0 ) {
+
+            // create chapter dir
+            File perChapDirFile = new File(mangaTitleDir + "/" + mangaTitleChapDir);
+            Boolean perChapDirCreated = perChapDirFile.mkdir();
+            if ( perChapDirCreated )
+                System.out.println("dir " + mangaTitleDir + "/" + mangaTitleChapDir + " was created!");
+            else {
+                System.out.println("dir " + mangaTitleDir + "/" + mangaTitleChapDir + " already exist.");
+                Boolean completeChapExistsInDir = perChapDirFile.listFiles().length > 18 ? true : false;
+                if ( completeChapExistsInDir ) return false;
+            }
+
+            // save images for each url
+            for (String imageUrl : imageUrls) {
+                String imgName = FilenameUtils.getName(imageUrl);
+                String destinationFile = mangaTitleDir + "/" + mangaTitleChapDir + "/" + imgName;
+                System.out.println("destination file = " + destinationFile);
+
+                try {
+                    SaveImageFromUrl.saveImage(imageUrl, destinationFile);
+                    System.out.println(" --> saved " + imageUrl + " from " + destinationFile);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            return true;
+        }else{
+            return false;
+        }
+    }
+
+    protected static Document getDocFromURL(String url){
+        Document doc = null;
+        try {
+            doc = Jsoup.connect(url).timeout(TimeOutInSec * 1000).userAgent("Mozilla").get();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+        return doc;
+    }
+
+
+    // collect links to images in a give url containing thumbnail images
+    protected static ArrayList<String> getImageUrlsFromThumbnailUrl(String thumbnailUrl) {
+        ArrayList<String> allImageUrls = new ArrayList<String>();
+        // support multiple thumbnailUrl
+        ArrayList<String> thumbnailUrls = getAllThumbnailPages(thumbnailUrl, "a[href*=page=]");
+        System.out.println(" ---- ");
+        for (String url : thumbnailUrls) {
+            System.out.println(" thumbnail page = " + url);
+            ArrayList<String> imageUrls = getImageUrlsFromThumbnailUrlPerPage(url);
+            allImageUrls.addAll(imageUrls);
+        }
+        System.out.println(" ---- ");
+        return allImageUrls;
+    }
+
+    protected static ArrayList<String> getAllThumbnailPages(String thumbnailUrl, String pattern) {
+        ArrayList<String> thumbnailUrls = new ArrayList<String>();
+        thumbnailUrls.add(thumbnailUrl);
+        System.out.println("thumbnailUrl = " + thumbnailUrl);
+
+        Document doc = getDocFromURL(thumbnailUrl);
+        Elements links = doc.select(pattern); // for mangahead
+        //Elements links = doc.select(); // for mangamura
+        Set<String> hs = new HashSet<String>();
+
+        // since there are duplicate links containing "page=", use Set to find unique links
+        for (Element link : links) {
+            String absHref = link.attr("abs:href");
+            hs.add(absHref);
+        }
+        for (String url : hs) {
+            thumbnailUrls.add(url);
+        }
+        return thumbnailUrls;
+    }
+
+    // collect links to images in a give url containing thumbnail images
+    // parse a Thumbnail page, find a link to individual image page, then go there and find the final link to the .jpg file
+    protected static ArrayList<String> getImageUrlsFromThumbnailUrlPerPage(String thumbnailUrl) {
+        ArrayList<String> imageUrls = new ArrayList<String>();
+        System.out.println("thumbnailUrl = " + thumbnailUrl);
+        Document doc = getDocFromURL(thumbnailUrl);
+        Elements links = doc.select("a[href*=.jpg]"); // href value that contains .jpg
+        for (Element link : links) {
+            String absHref = link.attr("abs:href");
+            Document jpgDoc = getDocFromURL(absHref);
+            Elements jpgImgSrcs = jpgDoc.select("img[src$=.jpg]"); // src value that ends with .jpg
+            for (Element imgUrl : jpgImgSrcs) {
+                System.out.println("  ==> " + imgUrl);
+                imageUrls.add(imgUrl.attr("src"));
+            }
+        }
+        // if the page has multiple thumbnail pages, apply above to the rest of pages
+        return imageUrls;
+    }
+
+
     protected static boolean download_one_chapter_per_manga(MangaScanDataBase mangaScanDB){
 
         Boolean manga_downloaded = false;
@@ -177,16 +384,6 @@ public class MangaDownloader {
         return manga_downloaded;
     }
 
-    protected static Document getDocFromURL(String url){
-        Document doc = null;
-        try {
-            doc = Jsoup.connect(url).timeout(TimeOutInSec * 1000).userAgent("Mozilla").get();
-        } catch (IOException ex) {
-            ex.printStackTrace();
-        }
-        return doc;
-    }
-
     protected static String getPerMangaUrl(String topPageUrl, String title){
         String perMangaUrl = new String();
         System.out.println("topPageUrl = " + topPageUrl);
@@ -217,109 +414,5 @@ public class MangaDownloader {
         //return "http://mangahead.com/Manga-Raw-Scan/Toriko/Toriko-320-Raw-Scan";
         //return "http://mangahead.com/Manga-Raw-Scan/Nisekoi/Nisekoi-167-Raw-Scan";
         //return "http://mangahead.com/Manga-Raw-Scan/Fairy-Tail/Fairy-Tail-428-Raw-Scan";
-    }
-
-    protected static boolean saveMangaScansFromThumbnailUrl(String thumbnailUrl) {
-        // create directory to save images
-        String[] urlSegments = thumbnailUrl.split("/");
-        String mangaTitleChapDir = urlSegments[urlSegments.length - 1];
-        String mangaTitleDir = urlSegments[urlSegments.length - 2];
-        URL location = MangaDownloader.class.getProtectionDomain().getCodeSource().getLocation();
-        String dirFullPath = location.toString() + mangaTitleDir + "/" + mangaTitleChapDir;
-
-        // create tile dir and chapter dir inside it
-        if ( new File(mangaTitleDir).mkdir() )
-            System.out.println("dir " + mangaTitleDir + " was created!");
-        else
-            System.out.println("dir " + mangaTitleDir + " WASN'T created!");
-
-        // this takes some time
-        ArrayList<String> imageUrls = getImageUrlsFromThumbnailUrl(thumbnailUrl);
-
-        if( imageUrls.size() > 0 ) {
-
-            // create chapter dir
-            File perChapDirFile = new File(mangaTitleDir + "/" + mangaTitleChapDir);
-            Boolean perChapDirCreated = perChapDirFile.mkdir();
-            if ( perChapDirCreated )
-                System.out.println("dir " + mangaTitleDir + "/" + mangaTitleChapDir + " was created!");
-            else {
-                System.out.println("dir " + mangaTitleDir + "/" + mangaTitleChapDir + " already exist.");
-                Boolean completeChapExistsInDir = perChapDirFile.listFiles().length > 18 ? true : false;
-                if ( completeChapExistsInDir ) return false;
-            }
-
-            // save images for each url
-            for (String imageUrl : imageUrls) {
-                String imgName = FilenameUtils.getName(imageUrl);
-                String destinationFile = mangaTitleDir + "/" + mangaTitleChapDir + "/" + imgName;
-                System.out.println("destination file = " + destinationFile);
-
-                try {
-                    SaveImageFromUrl.saveImage(imageUrl, destinationFile);
-                    System.out.println(" --> saved " + imageUrl + " from " + destinationFile);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-            return true;
-        }else{
-            return false;
-        }
-    }
-
-    // collect links to images in a give url containing thumbnail images
-    protected static ArrayList<String> getImageUrlsFromThumbnailUrl(String thumbnailUrl) {
-        ArrayList<String> allImageUrls = new ArrayList<String>();
-        // support multiple thumbnailUrl
-        ArrayList<String> thumbnailUrls = getAllThumbnailPages(thumbnailUrl);
-        System.out.println(" ---- ");
-        for (String url : thumbnailUrls) {
-            System.out.println(" thumbnail page = " + url);
-            ArrayList<String> imageUrls = getImageUrlsFromThumbnailUrlPerPage(url);
-            allImageUrls.addAll(imageUrls);
-        }
-        System.out.println(" ---- ");
-        return allImageUrls;
-    }
-
-    protected static ArrayList<String> getAllThumbnailPages(String thumbnailUrl) {
-        ArrayList<String> thumbnailUrls = new ArrayList<String>();
-        thumbnailUrls.add(thumbnailUrl);
-        System.out.println("thumbnailUrl = " + thumbnailUrl);
-
-        Document doc = getDocFromURL(thumbnailUrl);
-        Elements links = doc.select("a[href*=page=]"); // for mangahead
-        //Elements links = doc.select("a[href*paged=]"); // for mangamura
-        Set<String> hs = new HashSet<String>();
-
-        // since there are duplicate links containing "page=", use Set to find unique links
-        for (Element link : links) {
-            String absHref = link.attr("abs:href");
-            hs.add(absHref);
-        }
-        for (String url : hs) {
-            thumbnailUrls.add(url);
-        }
-        return thumbnailUrls;
-    }
-
-    // collect links to images in a give url containing thumbnail images
-    protected static ArrayList<String> getImageUrlsFromThumbnailUrlPerPage(String thumbnailUrl) {
-        ArrayList<String> imageUrls = new ArrayList<String>();
-        System.out.println("thumbnailUrl = " + thumbnailUrl);
-        Document doc = getDocFromURL(thumbnailUrl);
-        Elements links = doc.select("a[href*=.jpg]"); // href value that contains .jpg
-        for (Element link : links) {
-            String absHref = link.attr("abs:href");
-            Document jpgDoc = getDocFromURL(absHref);
-            Elements jpgImgSrcs = jpgDoc.select("img[src$=.jpg]"); // src value that ends with .jpg
-            for (Element imgUrl : jpgImgSrcs) {
-                System.out.println("  ==> " + imgUrl);
-                imageUrls.add(imgUrl.attr("src"));
-            }
-        }
-        // if the page has multiple thumbnail pages, apply above to the rest of pages
-        return imageUrls;
     }
 }

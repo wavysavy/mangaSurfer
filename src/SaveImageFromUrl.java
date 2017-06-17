@@ -14,24 +14,30 @@ public class SaveImageFromUrl {
 
     public static void saveImage(String imageUrl, String destinationFile) throws IOException {
         //System.out.println(imageUrl);
-        URL url = new URL(imageUrl);
+        try{
+            System.out.println("destinationFile @ SaveImageFromUrl.saveImage= " + destinationFile);
 
-        //InputStream is = url.openStream();  // results in java.io.IOException: Server returned HTTP response code: 403 for URL:
-        HttpURLConnection httpcon = (HttpURLConnection) url.openConnection();
-        httpcon.addRequestProperty("User-Agent", "Mozilla/4.0");
-        InputStream is = httpcon.getInputStream();
+            URL url = new URL(imageUrl);
 
-        OutputStream os = new FileOutputStream(destinationFile);
+            //InputStream is = url.openStream();  // results in java.io.IOException: Server returned HTTP response code: 403 for URL:
+            HttpURLConnection httpcon = (HttpURLConnection) url.openConnection();
+            httpcon.addRequestProperty("User-Agent", "Mozilla/4.0");
+            InputStream is = httpcon.getInputStream();
 
-        byte[] b = new byte[2048];
-        int length;
+            OutputStream os = new FileOutputStream(destinationFile);
 
-        while ((length = is.read(b)) != -1) {
-            os.write(b, 0, length);
+            byte[] b = new byte[2048];
+            int length;
+
+            while ((length = is.read(b)) != -1) {
+                os.write(b, 0, length);
+            }
+
+            is.close();
+            os.close();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-
-        is.close();
-        os.close();
     }
 
 }
