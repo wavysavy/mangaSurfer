@@ -21,18 +21,25 @@ import javax.xml.transform.stream.StreamResult;
 /**
  * Created by hakiba on 4/23/2015.
  */
+
 public class MangaScanDataBase {
 
-    static String MangaScanDataXML = "manga_scan_data.xml";
-
-    private org.w3c.dom.Document doc;
-
+    public MangaScanDataBase(){}
     public MangaScanDataBase(String xmlFile){
+        loadXML(xmlFile);
+    }
+
+    protected org.w3c.dom.Document doc;
+    protected String m_xmlFile;
+
+    public void loadXML(String xmlFile){
         // load XML file
+        m_xmlFile = xmlFile;
+
         try {
             DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
             DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
-            File fXmlFile = new File(MangaScanDataXML);
+            File fXmlFile = new File(xmlFile);
             doc = dBuilder.parse(fXmlFile);
         } catch (ParserConfigurationException e){
             e.printStackTrace();
@@ -42,6 +49,7 @@ public class MangaScanDataBase {
             e.printStackTrace();
         }
     }
+
     // find all the manga title and latest chapter fetched
 
     // Example XML:
@@ -93,7 +101,7 @@ public class MangaScanDataBase {
         try {
             Transformer transformer = transformerFactory.newTransformer();
             DOMSource domSource = new DOMSource(doc);
-            StreamResult streamResult = new StreamResult(new File(MangaScanDataXML));
+            StreamResult streamResult = new StreamResult(new File(m_xmlFile));
             try {
                 transformer.transform(domSource, streamResult);
             }catch(TransformerException e){
@@ -104,3 +112,5 @@ public class MangaScanDataBase {
         }
     }
 }
+
+

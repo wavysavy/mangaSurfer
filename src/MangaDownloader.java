@@ -18,29 +18,9 @@ import org.jsoup.select.Elements;
 import static java.lang.System.exit;
 
 // ---
-// Program Flow
+// Usage
 // ---
-// Input: raw scan url
-// 1. get what to look for (from XML)
-// 2. For each target manga chapter
-//   3. find thumbnail url
-//   4. indicate that it's not uploaded yet, if thumbnail url not found
-//   5. if images don't exist in local drive
-//      6. download images at manga title dir
-//
-// Classes
-//   * MangaDownloader - for each manga, find thumbnail URL, and save each images there
-//     * MangaScanDataBase
-//     * MangaMetaData
-//
-// New Features
-//   * the program keeps running and look for the latest chapters every day, if found, send notification e-mail
-//     - MangaInspecter
-// Problem:
-//   *
-// ToDo:
-//   * if chapter doesn't exist, try fetching next, if 3 attempt failed. Consider that as latest not out (define broken link as 3 consecutive chapters)
-//   * run MangDownloader as deamon, send notification once a manga is available (new feature)
+// java -jar mmFetcher.jar targetTitles.xml
 //
 public class MangaDownloader {
 
@@ -49,10 +29,10 @@ public class MangaDownloader {
 
     public static void main(String[] args) {
         //download_manga_from_mangahead();
-        download_manga_from_mangamura("http://matome.manga-free-online.com/?cat=1260");
+        download_manga("mmTarget.xml");
     }
 
-    // For each manga link from 作品一覧 page such as http://matome.manga-free-online.com/?cat=3674 for Btoom
+    // For each manga link from title list page such as http://matome.manga-free-online.com/?cat=3674 for Btoom
     //    For each chapter/volume link x ( find by <a href=x> under  <div class="* article_title"> )
     //       For each page link  (find by <a href = 'paged=*')
     //           For each jpg image link (find by *[1-9][0-9].jpg*)
@@ -68,7 +48,22 @@ public class MangaDownloader {
         }
     };
 
-    protected static void download_manga_from_mangamura(String mangaTitleURL) {
+    protected static void download_manga(String mmTargetXML) {
+        System.out.println("mmTargetXML : " + mmTargetXML);
+        MangaScanDataBaseForMM mangaScanDB = new MangaScanDataBaseForMM(mmTargetXML);
+
+        for( String url : mangaScanDB.getTitleURLs() ) {
+            download_one_manga_title(url);
+        }
+    }
+
+    protected static  ArrayList<String> ExtractMangaURLs(String mangaTargetXML){
+        ArrayList<String> outURLs = new ArrayList<String>();
+
+        return outURLs;
+    }
+
+    protected static void download_one_manga_title(String mangaTitleURL) {
 
         class UrlNamePair{
             String url;
@@ -101,8 +96,6 @@ public class MangaDownloader {
             System.out.println(chapVolURLNamePair.url);
             for (String pageURL : fetchLinksByPattern(chapVolURLNamePair.url, "a[href*=paged=]"))
             {
-                //System.out.println(" -> pageURL: " + pageURL);
-
                 for (String imgURL : fetchLinksByPattern(pageURL, "a[href*= " + imgExt + "]"))
                 {
                     String filenamePrefix = FilenameUtils.getName(imgURL); // extract string after the last '/'
@@ -114,7 +107,6 @@ public class MangaDownloader {
                         e.printStackTrace();
                     }
                 }
-
             }
         }
     }
