@@ -48,12 +48,6 @@ public class MangaDownloader {
     // ---
     protected static void download_one_manga_title(String mangaTitleURL) {
 
-        class UrlNamePair{
-            String url;
-            String name;
-            UrlNamePair(String url, String name){ this.url = url; this.name = name; }
-        };
-
         String imgExt = ".jpg";
 
         Document doc = getDocFromURL(mangaTitleURL);
@@ -62,32 +56,33 @@ public class MangaDownloader {
         String mangaTitleDir = doc.select("h2[class*=post_title]").first().text();
         CreateDir(mangaTitleDir);
 
-        // find chapter/volume list URLs by finding a tag under div tag which contains article_title as a value of class atrributes
-        ArrayList<UrlNamePair> chapVolURLs = new ArrayList<UrlNamePair>();
-        for(Element e : doc.select("div[class*=article_title]")) {
-            Element hrefIncludedElm = e.child(0);
-            chapVolURLs.add( new UrlNamePair(hrefIncludedElm.attr("abs:href"), hrefIncludedElm.text() ) );
-        }
-
-        for(UrlNamePair chapVolURLNamePair : chapVolURLs )
+        for (String titlePagedURL : fetchLinksByPattern(mangaTitleURL, "a[href*=paged=]"))
         {
-            String chapVolDirName = chapVolURLNamePair.name;
+            Document pagedDoc = getDocFromURL(titlePagedURL);
+            ArrayList<UrlNamePair> chapVolURLs = getChapVolURLs(pagedDoc);
 
-            // create chapter or volume dir
-            if( CreateDir(mangaTitleDir + "/" + chapVolDirName) == false ) continue;
-
-            System.out.println(chapVolURLNamePair.url);
-            for (String pageURL : fetchLinksByPattern(chapVolURLNamePair.url, "a[href*=paged=]"))
+            for(UrlNamePair chapVolURLNamePair : chapVolURLs )
             {
-                for (String imgURL : fetchLinksByPattern(pageURL, "a[href*= " + imgExt + "]"))
+                String chapVolDirName = chapVolURLNamePair.name;
+                System.out.println("chapVolDirName: " + chapVolDirName);
+                System.out.println("  url: " + chapVolURLNamePair.url);
+                // create chapter or volume dir
+                if( CreateDir(mangaTitleDir + "/" + chapVolDirName) == false ) continue;
+
+                // System.out.println(chapVolURLNamePair.url);
+
+                for (String chapVolPagedURL : fetchLinksByPattern(chapVolURLNamePair.url, "a[href*=paged=]"))
                 {
-                    String filenamePrefix = FilenameUtils.getName(imgURL); // extract string after the last '/'
-                    String imgFilename = filenamePrefix.substring(0, filenamePrefix.indexOf(".")); // remove string after "."
-                    String outImgPath = mangaTitleDir + "/" + chapVolDirName + "/" + imgFilename + imgExt;
-                    try {
-                        SaveImageFromUrl.saveImage(imgURL, outImgPath);
-                    } catch (IOException e) {
-                        e.printStackTrace();
+                    for (String imgURL : fetchLinksByPattern(chapVolPagedURL, "a[href*= " + imgExt + "]"))
+                    {
+                        String filenamePrefix = FilenameUtils.getName(imgURL); // extract string after the last '/'
+                        String imgFilename = filenamePrefix.substring(0, filenamePrefix.indexOf(".")); // remove string after "."
+                        String outImgPath = mangaTitleDir + "/" + chapVolDirName + "/" + imgFilename + imgExt;
+                        try {
+                            SaveImageFromUrl.saveImage(imgURL, outImgPath);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
                     }
                 }
             }
@@ -97,7 +92,7 @@ public class MangaDownloader {
     // ---
     // Utilities
     // ---
-    private static int TimeOutInSec = 20;
+    private static int TimeOutInSec = 60;
 
     protected static Document getDocFromURL(String url){
         Document doc = null;
@@ -118,6 +113,61 @@ public class MangaDownloader {
             return false;
         }
     };
+
+
+    static class UrlNamePair{
+        String url;
+        String name;
+        UrlNamePair(String url, String name){
+            if( url.length() <= 1 || name.length() <= 1 ) assert(false);
+            this.url = url; this.name = name;
+        }
+    };
+
+    // how to avoid downloading today's manga on the right side
+    // <article class="col-sm-4 col-xs-6">
+        /*
+        // target manga chapter or volume page (two divs children under article tag)
+        <article class="col-sm-4 col-xs-6">
+            <a href="/?p=88061">
+                <img src="http://imgon.manga-free-online.com/weelmymangamura_955/1_ss.jpg" class="img-responsive miss">
+            </a>
+            <div class="col-sm-12 col-xs-12 article_title">
+              <a href="/?p=88061">キングダム 506話 </a>
+            </div>
+            <div class="col-sm-12 col-xs-12 article_meta">
+                    2017-02-17 : <a href="/?cat=541" class="underline">キングダム</a>
+            </div>
+        </article>
+
+        // non-target chapter or volume of today's mangas (there's 1 div child for article tag)
+        <article class="col-sm-6 col-xs-6 row-0">
+            <a href="/?p=1497878041">
+                <img src="http://imgon.manga-free-online.com/localup_1716/1_ss.jpg" style="width:100%;height:230px;" class="miss">
+            </a>
+            <div class="col-sm-12 col-xs-12 article_title">
+              <a href="/?p=1497878041"> ハレ婚。 128話 </a>
+            </div>
+        </article>
+        */
+    // find article tag with a and 2 div tags, grab the first div and it's child a is the link to chap/volume pages
+    protected static ArrayList<UrlNamePair> getChapVolURLs(Document doc){
+
+        ArrayList<UrlNamePair> chapVolURLs = new ArrayList<UrlNamePair>();
+        for (Element article : doc.select("article[class]")) {
+            if (article.children().size() == 3) {
+                if ((article.child(0).tagName() == "a") && (article.child(1).tagName() == "div") && (article.child(2).tagName() == "div")) {
+                    Element hrefIncludedElm = article.child(1).child(0);  // article -> div -> <a href=xxx>
+                    chapVolURLs.add(new UrlNamePair(hrefIncludedElm.attr("abs:href"), hrefIncludedElm.text()));
+                }
+            }
+        }
+//        for(Element e : doc.select("div[class*=article_title]")) {
+//            Element hrefIncludedElm = e.child(0);
+//            chapVolURLs.add( new UrlNamePair(hrefIncludedElm.attr("abs:href"), hrefIncludedElm.text() ) );
+//        }
+        return chapVolURLs;
+    }
 
     protected static ArrayList<String> fetchLinksByPattern(String inURL, String pattern) {
         System.out.println("inURL @ fetchLinksByPattern = " + inURL);
